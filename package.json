@@ -1,6 +1,6 @@
 {
   "name": "@mkabanau/wallet",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "wallet builder",
   "files": [
     "/dist"
