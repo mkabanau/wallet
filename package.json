@@ -34,7 +34,7 @@
   },
   "scripts": {
     "test": "jest",
-    "build": "npx tsc",
+    "build": "npm run dist",
     "dist": "npm run dist:prep && npm run dist:src && npm run dist:cjs && npm run dist:esm && npm run dist:types ",
     "dist:cjs": "tsc --project ./dist/ --module commonjs --outDir ./dist/cjs/ --sourceMap",
     "dist:esm": "tsc --project ./dist/ --module es2020 --outDir ./dist/esm/ --sourceMap",
