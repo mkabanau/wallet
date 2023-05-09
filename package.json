@@ -1,6 +1,6 @@
 {
   "name": "@mkabanau/wallet",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "wallet builder",
   "files": [
     "/dist"
@@ -52,9 +52,6 @@
       "<rootDir>/node_modules/",
       "<rootDir>/.history/"
     ],
-    "transformIgnorePatterns": [
-      "/node_modules/(?!@mkabanau\\storage)"
-    ],
     "testEnvironment": "node",
     "moduleFileExtensions": [
       "ts",
@@ -96,9 +93,12 @@
     "@mkabanau:registry": "https://npm.pkg.github.com"
   },
   "dependencies": {
-    "@mkabanau/components": "^0.0.1",
-    "@mkabanau/ucan-plugin": "^0.0.4",
-    "@mkabanau/yjs-storage": "^0.0.1",
+    "@mkabanau/components": "file:../components",
+    "@mkabanau/core": "^0.11.4-test4",
+    "@mkabanau/default-plugins": "^0.11.4-test2",
+    "@mkabanau/ucan-plugin": "file:../ucan-plugin",
+    "@mkabanau/ucans": "^0.11.4-test2",
+    "@mkabanau/yjs-storage": "file:../storage",
     "@peculiar/webcrypto": "1.1.4",
     "@transmute/jose-ld": "^0.7.0-unstable.80",
     "@transmute/x25519-key-pair": "^0.7.0-unstable.80",

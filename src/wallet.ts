@@ -2,21 +2,59 @@ import { YJSStorageProvider, StorageProvider, IStorage } from "@mkabanau/yjs-sto
 import * as Factory from 'factory.ts'
 
 import { seedToId, passwordToKey, lockContent, unlockContents, exportContentsAsCredential, contentsFromEncryptedWalletCredential, WalletContent2020 } from '@mkabanau/components'
+
+import { CapabilityService, capabilityPlugin, encode } from "@mkabanau/ucan-plugin"
+import { EdKeypair} from "@mkabanau/default-plugins"
+
 export enum WalletStatus {
     Locked = "LOCKED",
     Unlocked = "UNLOCKED"
 }
 
+
+interface Options {
+    iss: string
+    [name: string]: any
+}
+
+export interface CapabilityResolver {
+    ByCID: string
+    ByAudienence: string
+    ByIssuer: string
+}
+
+// export interface StoreI {
+//     // add(ucan: Ucan): Promise<void>;
+//     getByAudience(audience: string): Ucan[];
+//     findByAudience(audience: string, predicate: (ucan: Ucan) => boolean): Ucan | null;
+//     findWithCapability(audience: string, requiredCapability: Capability, requiredIssuer: string): Iterable<DelegationChain>;
+// }
+
+export interface KeyResolver {
+    get: (keyId: string) => Promise<any>;
+}
+
+
+export interface Capability {
+    capabilityProvider: CapabilityService;
+    verify: (token: any, opts: any) => Promise<any>;
+    issue: (cap: any, opts: Options) => Promise<any>;
+    prove: (cap: any, opts: any) => Promise<any>;
+    derive: (proof: any, cap: any, opts: any) => Promise<any>;
+    validate: (cap:any, opts?:any) => Promise<any>;
+}
+
 export interface Wallet {
     status: WalletStatus;
-    walletId: string
+    walletId: string;
     contents: IStorage;
-    init: () => Promise<void>
-    getStatus: ()=>WalletStatus
+    keyResolver:KeyResolver;
+    init: (keyResolver:()=>KeyResolver) => Promise<void>;
+    getStatus: () => WalletStatus;
     seedToId: (seed: Uint8Array) => Promise<string>;
     passwordToKey: (password: string) => Promise<Uint8Array>;
     add: (content: any) => Promise<void>;
-    query: (opts: any) => Promise<any>
+    query: (opts: any) => Promise<any>;
     remove: (contentId: string) => Promise<any>;
     lock: (password: string) => Promise<void>;
     unlock: (password: string) => Promise<void>;
@@ -24,19 +62,23 @@ export interface Wallet {
     import: (encryptedWalletCredential: any, password: string) => Promise<Wallet>;
 }
 
-interface PixiWallet extends Wallet { }
+interface PixiWallet extends Wallet, Capability { }
 
 var walletDefaults = {
     status: WalletStatus.Unlocked,
     walletId: "test-storage",
     contents: undefined,
-    init: function():Promise<void> {
-        (this as Wallet).contents =  new YJSStorageProvider((this as Wallet).walletId)
+    capabilityProvider: undefined,
+    keyResolver: undefined,
+    init: function (keyResolver: ()=>KeyResolver): Promise<void> {
+        (this as Wallet).contents = new YJSStorageProvider((this as Wallet).walletId);
+        (this as PixiWallet).capabilityProvider = capabilityPlugin.build();
+        (this as Wallet).keyResolver = keyResolver()
         return
     },
-    getStatus: function ():WalletStatus {
+    getStatus: function (): WalletStatus {
         let walletId = (this as Wallet).walletId;
-        let encrypteContents = localStorage.getItem(walletId)
+        let encrypteContents = localStorage.getItem(walletId);
         // console.log(encrypteContents)
         if (encrypteContents) {
             (this as Wallet).status = WalletStatus.Locked;
@@ -45,7 +87,7 @@ var walletDefaults = {
     },
     seedToId,
     passwordToKey,
-    add: function (content: WalletContent2020): Promise<void> {
+    add: function (content: any): Promise<void> {
         (this as Wallet).contents.Put(content);
         return this;
     },
@@ -59,7 +101,7 @@ var walletDefaults = {
         let contents = await (this as Wallet).contents.Export()
         let encryptedContents = await lockContent(
             password,
-            {contents}
+            { contents }
         );
         let walletId = (this as Wallet).walletId;
         localStorage.setItem(walletId, JSON.stringify(encryptedContents));
@@ -80,7 +122,8 @@ var walletDefaults = {
         await (this as Wallet).contents.Import(contents.contents);
 
         (this as Wallet).status = WalletStatus.Unlocked;
-        return ;
+        localStorage.removeItem(walletId)
+        return;
     },
     export: async function (password: string): Promise<any> {
         let contents = await (this as Wallet).contents.Export()
@@ -97,7 +140,35 @@ var walletDefaults = {
         await (this as Wallet).contents.Import(contents)
         this.status = WalletStatus.Unlocked;
         return this;
-    }
+    },
+    verify: async function (token:any, opts:any): Promise<any> {
+        return (this as PixiWallet).capabilityProvider.verify(token, opts)
+    },
+    validate: async function (token:any, opts?:any): Promise<any> {
+        return (this as PixiWallet).capabilityProvider.validate(token, opts)
+    },
+    issue: async function (cap:any, opts:any): Promise<any> {
+        let key = await (this as Wallet).keyResolver.get(opts.iss)
+        let capability = await (this as PixiWallet).capabilityProvider.issue(cap, {iss:(key as EdKeypair)});
+        let encodedCap = encode(capability);
+        (this as Wallet).contents.Put({"id":encodedCap});
+        return encodedCap;
+    },
+    prove: async function (cap:any, opts:any): Promise<any> {
+        let key = await (this as Wallet).keyResolver.get(opts.iss)
+        let capability = await (this as PixiWallet).capabilityProvider.prove(cap, {iss:(key as EdKeypair), aud: opts.aud});
+        let encodedCap = encode(capability);
+        (this as Wallet).contents.Put({"id":encodedCap});
+        return encodedCap;
+    },
+    derive: async function (token:any, cap:any, opts:any): Promise<any> {
+        let key = await (this as Wallet).keyResolver.get(opts.iss)
+        let capability = await (this as PixiWallet).capabilityProvider.derive(token, cap, {iss:(key as EdKeypair), aud:opts.aud});
+        let encodedCap = encode(capability);
+        (this as Wallet).contents.Put({"id":encodedCap});
+        return encodedCap;
+    },
+
 };
 
 const walletFactory = Factory.Sync.makeFactoryWithRequired<PixiWallet, "walletId">(walletDefaults);
