@@ -31,7 +31,7 @@ export interface CapabilityResolver {
 // }
 
 export interface KeyResolver {
-    get: (keyId: string) => Promise<any>;
+    get: (keyId: any) => Promise<any>;
 }
 
 
@@ -62,7 +62,11 @@ export interface Wallet {
     import: (encryptedWalletCredential: any, password: string) => Promise<Wallet>;
 }
 
-interface PixiWallet extends Wallet, Capability { }
+interface Helpers {
+    getKeyFromStorage: (did:string) => Promise<any>
+}
+
+interface PixiWallet extends Wallet, Capability, Helpers { }
 
 var walletDefaults = {
     status: WalletStatus.Unlocked,
@@ -70,8 +74,9 @@ var walletDefaults = {
     contents: undefined,
     capabilityProvider: undefined,
     keyResolver: undefined,
-    init: function (keyResolver: ()=>KeyResolver): Promise<void> {
+    init: async function (keyResolver: ()=>KeyResolver): Promise<void> {
         (this as Wallet).contents = new YJSStorageProvider((this as Wallet).walletId);
+        await (this as Wallet).contents.IsReady();
         (this as PixiWallet).capabilityProvider = capabilityPlugin.build();
         (this as Wallet).keyResolver = keyResolver()
         return
@@ -87,8 +92,8 @@ var walletDefaults = {
     },
     seedToId,
     passwordToKey,
-    add: function (content: any): Promise<void> {
-        (this as Wallet).contents.Put(content);
+    add: async function (content: any): Promise<void> {
+        await (this as Wallet).contents.Put(content);
         return this;
     },
     query: function (opts: any): Promise<any> {
@@ -147,25 +152,40 @@ var walletDefaults = {
     validate: async function (token:any, opts?:any): Promise<any> {
         return (this as PixiWallet).capabilityProvider.validate(token, opts)
     },
+    getKeyFromStorage: async function getKeyFromStorage(did:string):Promise<any> {
+        let content = await (this as Wallet).contents.Get(did)
+        let key = await ((this as Wallet).keyResolver as KeyResolver).get(content)
+        return key
+    },
+
     issue: async function (cap:any, opts:any): Promise<any> {
-        let key = await (this as Wallet).keyResolver.get(opts.iss)
+        let key = await (this as Helpers).getKeyFromStorage(opts.iss)
+        if (!key) {
+            throw Error(`key is not found ${opts.iss}`)
+        }
         let capability = await (this as PixiWallet).capabilityProvider.issue(cap, {iss:(key as EdKeypair)});
         let encodedCap = encode(capability);
-        (this as Wallet).contents.Put({"id":encodedCap});
+        (this as Wallet).contents.Put({"id":encodedCap, type:"ucan"});
         return encodedCap;
     },
     prove: async function (cap:any, opts:any): Promise<any> {
-        let key = await (this as Wallet).keyResolver.get(opts.iss)
+        let key = await (this as Helpers).getKeyFromStorage(opts.iss)
+        if (!key) {
+            throw Error(`key is not found ${opts.iss}`)
+        }
         let capability = await (this as PixiWallet).capabilityProvider.prove(cap, {iss:(key as EdKeypair), aud: opts.aud});
         let encodedCap = encode(capability);
-        (this as Wallet).contents.Put({"id":encodedCap});
+        (this as Wallet).contents.Put({"id":encodedCap, type:"ucan"});
         return encodedCap;
     },
     derive: async function (token:any, cap:any, opts:any): Promise<any> {
-        let key = await (this as Wallet).keyResolver.get(opts.iss)
+        let key = await (this as Helpers).getKeyFromStorage(opts.iss)
+        if (!key) {
+            throw Error(`key is not found ${opts.iss}`)
+        }
         let capability = await (this as PixiWallet).capabilityProvider.derive(token, cap, {iss:(key as EdKeypair), aud:opts.aud});
         let encodedCap = encode(capability);
-        (this as Wallet).contents.Put({"id":encodedCap});
+        (this as Wallet).contents.Put({"id":encodedCap, type:"ucan"});
         return encodedCap;
     },
 

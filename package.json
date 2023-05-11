@@ -93,12 +93,12 @@
     "@mkabanau:registry": "https://npm.pkg.github.com"
   },
   "dependencies": {
-    "@mkabanau/components": "file:../components",
+    "@mkabanau/components": "^0.0.2",
     "@mkabanau/core": "^0.11.4-test4",
     "@mkabanau/default-plugins": "^0.11.4-test2",
-    "@mkabanau/ucan-plugin": "file:../ucan-plugin",
+    "@mkabanau/ucan-plugin": "^0.0.6",
     "@mkabanau/ucans": "^0.11.4-test2",
-    "@mkabanau/yjs-storage": "file:../storage",
+    "@mkabanau/yjs-storage": "^0.0.2",
     "@peculiar/webcrypto": "1.1.4",
     "@transmute/jose-ld": "^0.7.0-unstable.80",
     "@transmute/x25519-key-pair": "^0.7.0-unstable.80",
